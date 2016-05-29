@@ -1,6 +1,6 @@
 ---
 title: Rendering Asp.Net Mvc form fields with @helpers and HtmlHelper
-date: 2016-05-19 14:23:26
+date: 2016-05-29 14:23:26
 tags:
     - Asp.Net MVC
     - Razor
@@ -48,6 +48,7 @@ When you write any kind of form on your page, you often end up with source like 
 ```
 
 As we can see, the code repeats itself. The code in `<label>` element is almost the same for all fields in this form.
+
 ``` csharp
 <label>
     @Html.DisplayNameFor(m => m.GivenNames) <sup>*</sup>
@@ -56,6 +57,8 @@ As we can see, the code repeats itself. The code in `<label>` element is almost 
         string.Empty, new { @class = "error" })
 </label>
 ```
+
+This is code smell because in the name of DRY rule, we should avoid code repeatition.
 
 Only difference is the name of the field that we want to render. This name is taken from the expression passed to each of the functions:
 + `@Html.DisplayNameFor`
@@ -74,21 +77,21 @@ public class MemberRegisterModel : RenderModel, IValidatableObject
         : base(UmbracoContext.Current.PublishedContentRequest.PublishedContent)
     { }
 
-    [UmbracoDisplayName("First Name")]
-    [UmbracoRequired]
+    [DisplayName("First Name")]
+    [Required]
     public virtual string GivenNames { get; set; }
 
-    [UmbracoDisplayName("Last Name")]
-    [UmbracoRequired]
+    [DisplayName("Last Name")]
+    [Required]
     public virtual string FamilyNames { get; set; }
 
-    [UmbracoDisplayName("Email")]
-    [UmbracoRequired]
+    [DisplayName("Email")]
+    [Required]
     [DataType(DataType.EmailAddress)]
     public string EmailAddress { get; set; }
 
-    [UmbracoDisplayName("Email Confirmation")]
-    [UmbracoRequired]
+    [DisplayName("Email Confirmation")]
+    [Required]
     [DataType(DataType.EmailAddress)]
     public string EmailAddressConfirmation { get; set; }
 }
@@ -136,7 +139,7 @@ namespace Application.BusinessLogic.Extensions
 
 Here is the code for checking if property has Ubraco required attribute:
 
-``` csharp
+```csharp
 public static class ExpressionUmbracoHelper
 {
     public static bool IsFieldRequired<T>(this Expression<Func<T, string>> propertyExpression)
@@ -149,7 +152,7 @@ public static class ExpressionUmbracoHelper
 
 Shared template that is used to render field in Razor friendly way. This helper is stored in `App_Code` folder.
 
-``` razor
+```razor
 @using System.Web.Mvc.Html
 
 @helper RenderFormFieldHelper(
@@ -182,25 +185,35 @@ Shared template that is used to render field in Razor friendly way. This helper 
 
 Following code is a litlle bit tricky.
 
-```
+```csharp
 public static class HtmlHelperExtensions
 {
     public static HelperResult FormFieldFor<TModel, TResult>(
         this HtmlHelper<TModel> html,
         Expression<Func<TModel, TResult>> expression,
-        Func<HtmlHelper, string, bool, IEnumerable<SelectListItem>, object, HelperResult> template,
-        object editorViewData = null,
-        IEnumerable<SelectListItem> dataSource = null)
+        Func<HtmlHelper, string, bool, HelperResult> template)
         where TModel : class
     {
         var isRequired = expression.IsFieldRequired();
         var propertyName = ExpressionHelper.GetExpressionText(expression);
 
-        var result = template(html, propertyName, isRequired, dataSource, editorViewData);
+        var result = template(html, propertyName, isRequired);
         return result;
     }
 }
 
 ```
 
+It's extension to HtmlHelper class. Parameters passed to this method are folowing:
++ `this HtmlHelper<TModel> html` - this is the HtmlHelper, available in cshtml files,
++ `Expression<Func<TModel, TResult>> expression` - for strongly typed models, a better way to pass a property name,
++ `Func<HtmlHelper, string, bool, HelperResult> template` - @helper method that will be used to generate html result
 
+`ExpressionHelper.GetExpressionText(expression)` - is a [method provided by ASP.NET][1] to get the name of the property from an expression.
+
+
+
+
+
+
+[1]: https://msdn.microsoft.com/en-us/library/system.web.mvc.expressionhelper.getexpressiontext(v=vs.118).aspx
