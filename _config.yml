@@ -72,3 +72,7 @@ deploy:
   repo: https://github.com/aburok/aburok.github.io.git
   branch: master
 
+
+# Disqus comments
+disqus_shortname: aburok
+
