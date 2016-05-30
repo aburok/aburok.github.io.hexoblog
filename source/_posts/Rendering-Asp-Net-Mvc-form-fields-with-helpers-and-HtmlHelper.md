@@ -1,5 +1,5 @@
 ---
-title: Rendering Asp.Net Mvc form fields with @helpers and HtmlHelper
+title: Rendering Asp.Net Mvc form fields with Razor @helper function and HtmlHelper extension method
 date: 2016-05-29 14:23:26
 tags:
     - Asp.Net MVC
@@ -11,38 +11,58 @@ tags:
 When you write any kind of form on your page, you often end up with source like this:
 
 ``` csharp
-@inherits UmbracoViewPage<Application.BusinessLogic.Models.Form.MemberRegisterModel>
+@using UmbracoTest.Controllers
+@inherits UmbracoViewPage<UmbracoTest.ViewModels.MemberRegisterModel>
 
-@using (Html.BeginUmbracoForm<MembershipSurfaceController>(
-    Controllers.MembershipSurface.ActionNames.MemberRegister,
+@{
+    ViewBag.Title = "Membership Registration Before refactor";
+}
+
+<h2>Membership Registration</h2>
+
+@using (Html.BeginUmbracoForm<MembershipController>(
+    "MemberRegister",
     FormMethod.Post,
-    new { @class = "general-form validate-form" }))
+    new { @class = "validate-form" }))
 {
-    <fieldset>
+    <fieldset class="form-group">
         <label>
-            @Html.DisplayNameFor(m => m.GivenNames) <sup>*</sup>
-            @Html.EditorFor(m => m.GivenNames)
-            @Html.ValidationMessageFor(m => m.GivenNames,
-                string.Empty, new { @class = "error" })
+            @Html.DisplayNameFor(m => m.GivenNames)
         </label>
+        @Html.EditorFor(m => m.GivenNames,
+            new { htmlAttributes = new { @class = "form-control" } })
+        @Html.ValidationMessageFor(m => m.GivenNames,
+            string.Empty, new { @class = "error" })
+    </fieldset>
+
+    <fieldset class="form-group">
         <label>
             @Html.DisplayNameFor(m => m.FamilyNames) <sup>*</sup>
-            @Html.EditorFor(m => m.FamilyNames)
-            @Html.ValidationMessageFor(m => m.FamilyNames,
-                string.Empty, new { @class = "error" })
         </label>
+        @Html.EditorFor(m => m.FamilyNames,
+            new { htmlAttributes = new { @class = "form-control" } })
+        @Html.ValidationMessageFor(m => m.FamilyNames,
+            string.Empty, new { @class = "error" })
+    </fieldset>
+
+    <fieldset class="form-group">
         <label>
             @Html.DisplayNameFor(m => m.EmailAddress) <sup>*</sup>
-            @Html.EditorFor(m => m.EmailAddress)
-            @Html.ValidationMessageFor(m => m.EmailAddress,
-                string.Empty, new { @class = "error" })
         </label>
+        @Html.EditorFor(m => m.EmailAddress,
+            new { htmlAttributes = new { @class = "form-control" } })
+        @Html.ValidationMessageFor(m => m.EmailAddress,
+            string.Empty, new { @class = "error" })
+    </fieldset>
+
+    <fieldset class="form-group">
         <label>
             @Html.DisplayNameFor(m => m.EmailAddressConfirmation) <sup>*</sup>
-            @Html.EditorFor(m => m.EmailAddressConfirmation)
-            @Html.ValidationMessageFor(m => m.EmailAddressConfirmation,
-                string.Empty, new { @class = "error" })
         </label>
+        @Html.EditorFor(m => m.EmailAddressConfirmation,
+            new { htmlAttributes = new { @class = "form-control" } })
+        @Html.ValidationMessageFor(m => m.EmailAddressConfirmation,
+            string.Empty, new { @class = "error" })
     </fieldset>
 }
 ```
@@ -50,12 +70,15 @@ When you write any kind of form on your page, you often end up with source like 
 As we can see, the code repeats itself. The code in `<label>` element is almost the same for all fields in this form.
 
 ``` csharp
-<label>
-    @Html.DisplayNameFor(m => m.GivenNames) <sup>*</sup>
-    @Html.EditorFor(m => m.GivenNames)
-    @Html.ValidationMessageFor(m => m.GivenNames,
+ <fieldset class="form-group">
+    <label>
+        @Html.DisplayNameFor(m => m.FamilyNames) <sup>*</sup>
+    </label>
+    @Html.EditorFor(m => m.FamilyNames,
+        new { htmlAttributes = new { @class = "form-control" } })
+    @Html.ValidationMessageFor(m => m.FamilyNames,
         string.Empty, new { @class = "error" })
-</label>
+</fieldset>
 ```
 
 This is code smell because in the name of DRY rule, we should avoid code repeatition.
@@ -65,20 +88,19 @@ Only difference is the name of the field that we want to render. This name is ta
 + `@Html.EditorFor`
 + `@Html.ValidationMessageFor`
 
-Additionaly, the '*' sign in most of the fileds is added manually.
+Additionaly, the `*` sign in most of the fileds is added manually.
 This is code smell, because we have this information already in the model.
 
 This view has a view model that is connected to it.
 
 ``` csharp
-public class MemberRegisterModel : RenderModel, IValidatableObject
+ public class MemberRegisterModel : RenderModel, IValidatableObject
 {
     public MemberRegisterModel()
         : base(UmbracoContext.Current.PublishedContentRequest.PublishedContent)
     { }
 
     [DisplayName("First Name")]
-    [Required]
     public virtual string GivenNames { get; set; }
 
     [DisplayName("Last Name")]
@@ -94,11 +116,21 @@ public class MemberRegisterModel : RenderModel, IValidatableObject
     [Required]
     [DataType(DataType.EmailAddress)]
     public string EmailAddressConfirmation { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        throw new System.NotImplementedException();
+    }
 }
 ```
 
-The `UmbracoRequired` attribute is telling the validator that this property is required.
-We could use that information to automatically render the '*'.
+# Solution
+
+The [`RequiredAttribute`][2] is telling the validator that this property is required.
+We could use that information to automatically render the required indicator -> `*`.
+
+To check if property should be marked with `*` we need to check if the propert has the `RequiredAttribute`.
+Below code checks if given property has a attribute of type.
 
 ``` csharp
 using System;
@@ -106,17 +138,17 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Web.Mvc;
 
-namespace Application.BusinessLogic.Extensions
+namespace UmbracoTest.Helpers
 {
     public static class PropertyExpressionExtensions
     {
-        public static bool HasAttribute<T, TAttribute>(
-            this Expression<Func<T, string>> propertyExpression,
+        public static bool HasAttribute<TModel, TPropertyType, TAttribute>(
+            this Expression<Func<TModel, TPropertyType>> propertyExpression,
             Func<TAttribute, bool> attributePredicate = null)
             where TAttribute : Attribute
         {
             var expressionText = ExpressionHelper.GetExpressionText(propertyExpression);
-            var type = typeof(T);
+            var type = typeof(TModel);
             var property = type.GetProperty(expressionText);
 
             var attributeType = typeof(TAttribute);
@@ -133,20 +165,17 @@ namespace Application.BusinessLogic.Extensions
         }
     }
 }
-
 ```
 
-
-Here is the code for checking if property has Ubraco required attribute:
+Here is the code for checking if property is marked with `RequiredAttribute` :
 
 ```csharp
-public static class ExpressionUmbracoHelper
+public static bool IsFieldRequired<TModel, TPropertyType>(
+    this Expression<Func<TModel, TPropertyType>> propertyExpression)
 {
-    public static bool IsFieldRequired<T>(this Expression<Func<T, string>> propertyExpression)
-    {
-        var hasRequiredAttribute = propertyExpression.HasAttribute<T, UmbracoRequired>();
-        return hasRequiredAttribute;
-    }
+    var hasRequiredAttribute =
+        propertyExpression.HasAttribute<TModel, TPropertyType, RequiredAttribute>();
+    return hasRequiredAttribute;
 }
 ```
 
@@ -158,28 +187,19 @@ Shared template that is used to render field in Razor friendly way. This helper 
 @helper RenderFormFieldHelper(
     System.Web.Mvc.HtmlHelper htmlHelper,
     string fieldName,
-    bool isRequired,
-    IEnumerable<System.Web.Mvc.SelectListItem> dataSource = null,
-    object editorViewData = null)
+    bool isRequired)
 {
-    <label>
-        @htmlHelper.DisplayName(fieldName)
-        @if (isRequired)
-        {
-            <sup>*</sup>
-        }
-        @if (dataSource == null)
-        {
-            @htmlHelper.Editor(fieldName, editorViewData)
-        }
-        else
-        {
-            <div class="select-wrapper">
-                @htmlHelper.DropDownList(fieldName, dataSource)
-            </div>
-        }
+    <fieldset class="form-group">
+        <label>
+            @htmlHelper.DisplayName(fieldName)
+            @if (isRequired)
+            {
+                <sup>*</sup>
+            }
+        </label>
+        @htmlHelper.Editor(fieldName, new { htmlAttributes = new { @class = "form-control" } })
         @htmlHelper.ValidationMessage(fieldName, string.Empty, new { @class = "error" })
-    </label>
+    </fieldset>
 }
 ```
 
@@ -201,7 +221,6 @@ public static class HtmlHelperExtensions
         return result;
     }
 }
-
 ```
 
 It's extension to HtmlHelper class. Parameters passed to this method are folowing:
@@ -211,9 +230,12 @@ It's extension to HtmlHelper class. Parameters passed to this method are folowin
 
 `ExpressionHelper.GetExpressionText(expression)` - is a [method provided by ASP.NET][1] to get the name of the property from an expression.
 
-
+Working code can be found on [the branch of my umbraco sandbox repository][3].
 
 
 
 
 [1]: https://msdn.microsoft.com/en-us/library/system.web.mvc.expressionhelper.getexpressiontext(v=vs.118).aspx
+[2]: https://msdn.microsoft.com/en-us/library/system.componentmodel.dataannotations.requiredattribute(v=vs.110).aspx
+[3]: https://github.com/aburok/umbraco-sandbox/tree/form_field_helper
+
