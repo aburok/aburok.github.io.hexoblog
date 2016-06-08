@@ -9,7 +9,7 @@ date: 2016-06-01 00:00:00
 
 # Problem
 
-Project that I'm working contains a form that is validated.
+Project that I'm working on contains a form that is being validated.
 My latest task was to add remote validation for the password field to check it against existing server code.
 I've described this in [my previous post][1].
 
@@ -27,9 +27,12 @@ Key to this dictionary item is set via attribute that is marking property.
 public string Password { get; set; }
 ```
 
-The dictionary items where set in Umbraco backoffice.
+The `MyProject.Form.Password` is an entry in Umbraco dictionary that was translated into couple of languages.
 
-It worked great with server side validation. Problem appeared when I've started to use the `RemoteAttribute`.
+It worked great with server side validation. After form was submitted, whole Umbraco page was send to server. Server had full context for a page.
+Proper culture was correctly set based on the Umbraco page context. So validation message was displayed in proper language.
+
+Problem appeared when I've started to use the `RemoteAttribute`.
 This way I was calling server validation method with an AJAX request. In this situation, Umbraco could not correctly read the language from the request.
 
 The method I found in the existing solution was to get current culture from the url and mapping in Umbraco.
@@ -128,5 +131,8 @@ But when I switch to Polish language `demo.umbraco.com/pl`, then first message i
 
 I hope that helped you. :)
 
+You can find working version of this code in [my github repo][2].
+
 
 [1]:http://aburok.github.io/2016/05/31/asp-net-mvc-ajax-form-validation-using-remoteattribute-in-umbraco/
+[2]:https://github.com/aburok/umbraco-demo/tree/post/umbraco-culture-ajax-request
