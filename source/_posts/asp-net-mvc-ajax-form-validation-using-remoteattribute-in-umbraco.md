@@ -162,4 +162,4 @@ Additionaly we need to include following scripts in our page, at the end of html
 Full working code can be found on a [branch of my Umbraco sandbox repo][1].
 
 
-[1]:https://github.com/aburok/umbraco-sandbox/tree/jquery-remote-validation
+[1]:https://github.com/aburok/umbraco-demo/tree/post/jquery-remote-validation
